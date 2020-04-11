@@ -5,10 +5,14 @@ import 'package:shop_app/providers/products.dart';
 import 'product_item.dart';
 
 class ProductsGrid extends StatelessWidget {
+  final bool showOnlyFavs;
+  ProductsGrid(this.showOnlyFavs);
+
   @override
   Widget build(BuildContext context) {
     final productsData = Provider.of<Products>(context);
-    final products = productsData.items;
+    final products =
+        showOnlyFavs ? productsData.favoriteItems : productsData.items;
 
     return GridView.builder(
       padding: const EdgeInsets.all(10),
@@ -19,7 +23,7 @@ class ProductsGrid extends StatelessWidget {
         mainAxisSpacing: 10,
       ),
       itemCount: products.length,
-      // ChangeNotifierProvider.value is useful specifically in list coz it may cause problem after 
+      // ChangeNotifierProvider.value is useful specifically in list coz it may cause problem after
       // deleting item from lists because of the way build works in flutter
       itemBuilder: (ctx, i) => ChangeNotifierProvider.value(
         value: products[i],
