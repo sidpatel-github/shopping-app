@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
+import 'package:shop_app/models/http_exception.dart';
 
 import 'product.dart';
 
@@ -71,8 +72,68 @@ class Products with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> addProduct(Product product) {
-    const url = 'https://shop-app-flutter-a5c3a.firebaseio.com/products';
+  Future<void> fetchAndSetProducts() async {
+    const url = 'https://shop-app-flutter-a5c3a.firebaseio.com/products.json';
+    try {
+      final response = await http.get(url);
+      final extractedData = json.decode(response.body) as Map<String, dynamic>;
+      final List<Product> loadedProducts = [];
+
+      if (extractedData == null) {
+        return;
+      }
+      extractedData.forEach((prodId, prodData) {
+        loadedProducts.add(Product(
+          id: prodId,
+          title: prodData['title'],
+          description: prodData['description'],
+          imageUrl: prodData['imageUrl'],
+          price: prodData['price'],
+          isFavorite: prodData['isFavorite'],
+        ));
+      });
+      _items = loadedProducts;
+      notifyListeners();
+    } catch (error) {
+      throw (error);
+    }
+  }
+
+// async will always returns future
+  Future<void> addProduct(Product product) async {
+    const url = 'https://shop-app-flutter-a5c3a.firebaseio.com/products.json';
+
+    try {
+      // await will make async call to be run in sync manner
+      final response = await http.post(
+        url,
+        body: json.encode({
+          'title': product.title,
+          'price': product.price,
+          'description': product.description,
+          'imageUrl': product.imageUrl,
+          'isFavorite': product.isFavorite,
+        }),
+      );
+
+      // product will be added locally only after saving it on firebase
+      final newProduct = Product(
+        // id: DateTime.now().toString(),
+        id: json.decode(response.body)['name'],
+        title: product.title,
+        price: product.price,
+        description: product.description,
+        imageUrl: product.imageUrl,
+      );
+      _items.add(newProduct);
+      notifyListeners();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /* old code without async
+    *
     return http
         .post(
       url,
@@ -98,19 +159,42 @@ class Products with ChangeNotifier {
       notifyListeners();
     }).catchError((error) {
       throw error;
-    });
-  }
+    });*/
 
-  void updateProduct(String id, Product newProduct) {
+  Future<void> updateProduct(String id, Product newProduct) async {
     final prodIndex = _items.indexWhere((prod) => prod.id == id);
     if (prodIndex >= 0) {
+      final url =
+          'https://shop-app-flutter-a5c3a.firebaseio.com/products/$id.json';
+      await http.patch(
+        url,
+        body: json.encode({
+          'title': newProduct.title,
+          'description': newProduct.description,
+          'imageUrl': newProduct.imageUrl,
+          'price': newProduct.price,
+        }),
+      );
       _items[prodIndex] = newProduct;
       notifyListeners();
     }
   }
 
-  void deleteProduct(String id) {
-    _items.removeWhere((prod) => prod.id == id);
+  Future<void> deleteProduct(String id) async {
+    final url =
+        'https://shop-app-flutter-a5c3a.firebaseio.com/products/$id.json';
+    final existingProductIndex = _items.indexWhere((prod) => prod.id == id);
+    var existingProduct = _items[existingProductIndex];
+    _items.removeAt(existingProductIndex);
     notifyListeners();
+
+    final response = await http.delete(url);
+    // delete will not cause an error so we have to throw error explicitly
+    if (response.statusCode >= 400) {
+      _items.insert(existingProductIndex, existingProduct);
+      notifyListeners();
+      throw HttpException('Can not delete product');
+    }
+    existingProduct = null;
   }
 }
