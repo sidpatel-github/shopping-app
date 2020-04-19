@@ -50,7 +50,7 @@ class Auth with ChangeNotifier {
       }
 
       _token = responseData['idToken'];
-      _userId = responseData['userId'];
+      _userId = responseData['localId'];
       _expireDate = DateTime.now().add(
         Duration(
           seconds: int.parse(
@@ -79,11 +79,12 @@ class Auth with ChangeNotifier {
         ),
       );
       final responseData = json.decode(response.body);
+      print(responseData);
       if (responseData['error'] != null) {
         throw HttpException(responseData['error']['message']);
       }
       _token = responseData['idToken'];
-      _userId = responseData['userId'];
+      _userId = responseData['localId'];
       _expireDate = DateTime.now().add(
         Duration(
           seconds: int.parse(
